@@ -5,7 +5,7 @@
     <section class="hero">
       <div class="container hero-inner">
         <div class="hero-text">
-          <div class="hero-eyebrow">ASIA'S #1 AUTO PARTS PLATFORM</div>
+          <div class="hero-eyebrow">MALAYSIA'S #1 AUTO PARTS PLATFORM</div>
           <h1>WHERE THE RIGHT<br><span>PARTS FIT</span></h1>
           <p>Find genuine and aftermarket car parts faster, smarter, and more reliably for your Proton, Perodua, Toyota, Honda, and more.</p>
           <div class="hero-search">
