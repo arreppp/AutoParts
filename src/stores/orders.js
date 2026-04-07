@@ -1,24 +1,25 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import api from '../lib/api'
 
 export const useOrdersStore = defineStore('orders', () => {
-  const orders = ref(JSON.parse(localStorage.getItem('ap_orders') || '[]'))
+  const orders = ref([])
 
-  function save() { localStorage.setItem('ap_orders', JSON.stringify(orders.value)) }
-
-  function placeOrder(cart, details) {
-    const order = {
-      id: 'ORD-' + Date.now(),
-      date: new Date().toISOString(),
-      items: [...cart],
-      details,
-      status: 'Processing',
-      total: cart.reduce((s, i) => s + i.price * i.qty, 0)
-    }
-    orders.value.unshift(order)
-    save()
-    return order
+  async function fetchOrders() {
+    const { data } = await api.get('/orders')
+    orders.value = data.data ?? data
   }
 
-  return { orders, placeOrder }
+  async function placeOrder(details) {
+    const { data } = await api.post('/orders', details)
+    orders.value.unshift(data.order)
+    return data.order
+  }
+
+  async function fetchOrder(id) {
+    const { data } = await api.get(`/orders/${id}`)
+    return data
+  }
+
+  return { orders, fetchOrders, placeOrder, fetchOrder }
 })

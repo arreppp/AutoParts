@@ -2,7 +2,11 @@
   <div>
     <div class="page-banner"><div class="container"><h1>MY ORDERS</h1></div></div>
     <div class="orders-page container">
-      <div v-if="orders.orders.length === 0" class="empty">
+      <div v-if="loading" class="empty">
+        <span>⏳</span>
+        <h3>Loading orders...</h3>
+      </div>
+      <div v-else-if="orders.orders.length === 0" class="empty">
         <span>📦</span>
         <h3>NO ORDERS YET</h3>
         <p>Place your first order and it will appear here.</p>
@@ -12,23 +16,23 @@
         <div v-for="order in orders.orders" :key="order.id" class="order-card">
           <div class="order-header">
             <div class="order-meta">
-              <span class="order-id">{{ order.id }}</span>
-              <span class="order-date">{{ formatDate(order.date) }}</span>
+              <span class="order-id">{{ order.order_number }}</span>
+              <span class="order-date">{{ formatDate(order.created_at) }}</span>
             </div>
             <span class="status-badge" :class="order.status.toLowerCase()">{{ order.status }}</span>
           </div>
           <div class="order-body">
             <div class="order-item" v-for="item in order.items" :key="item.id">
-              <span class="oi-emoji">{{ item.emoji }}</span>
-              <span class="oi-name">{{ item.name }}</span>
-              <span class="oi-qty">× {{ item.qty }}</span>
-              <span class="oi-price">RM {{ (item.price * item.qty).toFixed(2) }}</span>
+              <span class="oi-emoji">{{ item.product_emoji }}</span>
+              <span class="oi-name">{{ item.product_name }}</span>
+              <span class="oi-qty">× {{ item.quantity }}</span>
+              <span class="oi-price">RM {{ item.subtotal.toFixed(2) }}</span>
             </div>
           </div>
           <div class="order-footer">
             <div class="order-info-tags">
-              <span>📍 {{ order.details.shipping.city }}, {{ order.details.shipping.state }}</span>
-              <span>💳 {{ payLabel(order.details.payment.method) }}</span>
+              <span>📍 {{ order.shipping_city }}, {{ order.shipping_state }}</span>
+              <span>💳 {{ payLabel(order.payment_method) }}</span>
             </div>
             <div class="order-total">Grand Total: <strong>RM {{ Number(order.total).toFixed(2) }}</strong></div>
           </div>
@@ -39,10 +43,26 @@
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue'
 import { useOrdersStore } from '../stores/orders'
+
 const orders = useOrdersStore()
-function formatDate(iso) { return new Date(iso).toLocaleDateString('en-MY', { day:'numeric', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' }) }
-function payLabel(m) { return { fpx:'Online Banking (FPX)', card:'Credit/Debit Card', ewallet:'e-Wallet', cod:'Cash on Delivery' }[m] || m }
+const loading = ref(true)
+
+onMounted(async () => {
+  try {
+    await orders.fetchOrders()
+  } finally {
+    loading.value = false
+  }
+})
+
+function formatDate(iso) {
+  return new Date(iso).toLocaleDateString('en-MY', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+function payLabel(m) {
+  return { fpx: 'Online Banking (FPX)', card: 'Credit/Debit Card', ewallet: 'e-Wallet', cod: 'Cash on Delivery' }[m] || m
+}
 </script>
 
 <style scoped>
@@ -61,6 +81,7 @@ function payLabel(m) { return { fpx:'Online Banking (FPX)', card:'Credit/Debit C
 .order-date { font-size: 0.8rem; color: var(--text-muted); }
 .status-badge { padding: 4px 14px; border-radius: 20px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; font-family: 'Barlow', sans-serif; letter-spacing: 0.05em; }
 .status-badge.processing { background: #fff3e0; color: #e65100; border: 1px solid #ffcc80; }
+.status-badge.confirmed { background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9; }
 .status-badge.shipped { background: #e8f5e9; color: var(--success); border: 1px solid #a5d6a7; }
 .status-badge.delivered { background: #e8f5e9; color: var(--success); border: 1px solid #a5d6a7; }
 .status-badge.cancelled { background: #fff0f0; color: var(--red); border: 1px solid #ffcdd2; }

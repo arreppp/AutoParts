@@ -1,30 +1,39 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import api from '../lib/api'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(JSON.parse(localStorage.getItem('ap_user') || 'null'))
 
   const isLoggedIn = computed(() => !!user.value)
 
-  function login(email, password) {
-    const users = JSON.parse(localStorage.getItem('ap_users') || '[]')
-    const found = users.find(u => u.email === email && u.password === password)
-    if (!found) throw new Error('Invalid email or password.')
-    user.value = { name: found.name, email: found.email }
-    localStorage.setItem('ap_user', JSON.stringify(user.value))
+  async function login(email, password) {
+    const { data } = await api.post('/login', { email, password })
+    localStorage.setItem('ap_token', data.token)
+    localStorage.setItem('ap_user', JSON.stringify(data.user))
+    user.value = data.user
   }
 
-  function register(name, email, password) {
-    const users = JSON.parse(localStorage.getItem('ap_users') || '[]')
-    if (users.find(u => u.email === email)) throw new Error('Email already registered.')
-    users.push({ name, email, password })
-    localStorage.setItem('ap_users', JSON.stringify(users))
-    user.value = { name, email }
-    localStorage.setItem('ap_user', JSON.stringify(user.value))
+  async function register(name, email, password, passwordConfirmation) {
+    const { data } = await api.post('/register', {
+      name,
+      email,
+      password,
+      password_confirmation: passwordConfirmation ?? password,
+    })
+    localStorage.setItem('ap_token', data.token)
+    localStorage.setItem('ap_user', JSON.stringify(data.user))
+    user.value = data.user
   }
 
-  function logout() {
+  async function logout() {
+    try {
+      await api.post('/logout')
+    } catch (_) {
+      // ignore network errors on logout
+    }
     user.value = null
+    localStorage.removeItem('ap_token')
     localStorage.removeItem('ap_user')
   }
 

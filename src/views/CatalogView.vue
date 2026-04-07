@@ -42,11 +42,16 @@
             <span class="result-count">{{ filtered.length }} products found</span>
           </div>
 
-          <div v-if="filtered.length" class="products-grid">
+          <div v-if="loading" class="no-results">
+            <span>⏳</span>
+            <p>Loading parts catalog...</p>
+          </div>
+
+          <div v-else-if="filtered.length" class="products-grid">
             <div class="product-card" v-for="p in filtered" :key="p.id">
               <div class="product-img">
                 <span class="p-emoji">{{ p.emoji }}</span>
-                <span class="p-cat-tag">{{ p.category }}</span>
+                <span class="p-cat-tag">{{ p.category?.name ?? p.category }}</span>
               </div>
               <div class="product-body">
                 <div class="p-brand">{{ p.brand }}</div>
@@ -68,6 +73,7 @@
               </div>
             </div>
           </div>
+
           <div v-else class="no-results">
             <span>🔍</span>
             <p>No parts found matching your search.</p>
@@ -80,8 +86,8 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { categories, products } from '../stores/products'
+import { ref, computed, onMounted } from 'vue'
+import { categories, fetchProducts } from '../stores/products'
 import { useCartStore } from '../stores/cart'
 
 const cart = useCartStore()
@@ -89,22 +95,43 @@ const selectedCat = ref('All')
 const query = ref('')
 const sort = ref('default')
 const maxPrice = ref(700)
-const added = ref(null)
+const loading = ref(true)
+const allProducts = ref([])
 
-function addToCart(p) { cart.add(p); added.value = p.id; setTimeout(() => added.value = null, 1200) }
+onMounted(async () => {
+  try {
+    const data = await fetchProducts({ per_page: 100 })
+    allProducts.value = data.data ?? data
+  } finally {
+    loading.value = false
+  }
+})
+
+async function addToCart(p) {
+  try {
+    await cart.add(p)
+  } catch (e) {
+    alert(e.response?.data?.message ?? 'Could not add to cart. Please log in first.')
+  }
+}
 
 const filtered = computed(() => {
-  let list = products
-  if (selectedCat.value !== 'All') list = list.filter(p => p.category === selectedCat.value)
-  if (query.value) list = list.filter(p =>
-    p.name.toLowerCase().includes(query.value.toLowerCase()) ||
-    p.brand.toLowerCase().includes(query.value.toLowerCase()) ||
-    p.sku.toLowerCase().includes(query.value.toLowerCase())
-  )
+  let list = allProducts.value
+  if (selectedCat.value !== 'All') {
+    list = list.filter(p => (p.category?.name ?? p.category) === selectedCat.value)
+  }
+  if (query.value) {
+    const q = query.value.toLowerCase()
+    list = list.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      p.brand.toLowerCase().includes(q) ||
+      p.sku.toLowerCase().includes(q)
+    )
+  }
   list = list.filter(p => p.price <= maxPrice.value)
-  if (sort.value === 'price-asc') list = [...list].sort((a,b) => a.price - b.price)
-  if (sort.value === 'price-desc') list = [...list].sort((a,b) => b.price - a.price)
-  if (sort.value === 'rating') list = [...list].sort((a,b) => b.rating - a.rating)
+  if (sort.value === 'price-asc') list = [...list].sort((a, b) => a.price - b.price)
+  if (sort.value === 'price-desc') list = [...list].sort((a, b) => b.price - a.price)
+  if (sort.value === 'rating') list = [...list].sort((a, b) => b.rating - a.rating)
   return list
 })
 </script>
