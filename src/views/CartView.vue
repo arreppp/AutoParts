@@ -2,7 +2,12 @@
   <div>
     <div class="page-banner"><div class="container"><h1>MY CART</h1></div></div>
     <div class="cart-page container">
-      <div v-if="cart.items.length === 0" class="empty-cart">
+      <div v-if="loading" class="empty-cart">
+        <span>⏳</span>
+        <h3>Loading cart...</h3>
+      </div>
+
+      <div v-else-if="cart.items.length === 0" class="empty-cart">
         <span>🛒</span>
         <h3>Your cart is empty</h3>
         <p>Browse our catalog and add parts to your cart.</p>
@@ -20,31 +25,34 @@
               <div>
                 <div class="item-brand">{{ item.brand }}</div>
                 <div class="item-name">{{ item.name }}</div>
-                <div class="item-sku">{{ item.sku }}</div>
               </div>
             </div>
             <div class="item-cell">RM {{ item.price.toFixed(2) }}</div>
             <div class="item-cell">
               <div class="qty-ctrl">
-                <button @click="cart.updateQty(item.id, item.qty - 1)">−</button>
+                <button @click="updateQty(item.id, item.qty - 1)">−</button>
                 <span>{{ item.qty }}</span>
-                <button @click="cart.updateQty(item.id, item.qty + 1)">+</button>
+                <button @click="updateQty(item.id, item.qty + 1)">+</button>
               </div>
             </div>
-            <div class="item-cell bold">RM {{ (item.price * item.qty).toFixed(2) }}</div>
-            <button class="remove-btn" @click="cart.remove(item.id)">✕</button>
+            <div class="item-cell bold">RM {{ item.subtotal.toFixed(2) }}</div>
+            <button class="remove-btn" @click="removeItem(item.id)">✕</button>
           </div>
         </div>
 
         <div class="cart-summary">
           <h3>ORDER SUMMARY</h3>
-          <div class="sum-row"><span>Subtotal</span><span>RM {{ cart.total.toFixed(2) }}</span></div>
-          <div class="sum-row"><span>Shipping</span><span class="free-label" v-if="shipping===0">FREE</span><span v-else>RM 15.00</span></div>
-          <div class="sum-row"><span>SST (8%)</span><span>RM {{ (cart.total * 0.08).toFixed(2) }}</span></div>
+          <div class="sum-row"><span>Subtotal</span><span>RM {{ cart.subtotal.toFixed(2) }}</span></div>
+          <div class="sum-row">
+            <span>Shipping</span>
+            <span class="free-label" v-if="cart.shipping === 0">FREE</span>
+            <span v-else>RM {{ cart.shipping.toFixed(2) }}</span>
+          </div>
+          <div class="sum-row"><span>SST (8%)</span><span>RM {{ cart.tax.toFixed(2) }}</span></div>
           <div class="sum-divider"></div>
-          <div class="sum-row total"><span>TOTAL</span><span>RM {{ grandTotal }}</span></div>
-          <div class="free-ship-banner" v-if="cart.total < 200">
-            🚚 Add RM {{ (200 - cart.total).toFixed(2) }} more for <strong>FREE shipping</strong>!
+          <div class="sum-row total"><span>TOTAL</span><span>RM {{ cart.total.toFixed(2) }}</span></div>
+          <div class="free-ship-banner" v-if="cart.subtotal < 200">
+            🚚 Add RM {{ (200 - cart.subtotal).toFixed(2) }} more for <strong>FREE shipping</strong>!
           </div>
           <router-link to="/checkout" class="btn-primary checkout-btn">PROCEED TO CHECKOUT →</router-link>
           <router-link to="/catalog" class="btn-secondary continue-btn">← CONTINUE SHOPPING</router-link>
@@ -55,11 +63,27 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useCartStore } from '../stores/cart'
+
 const cart = useCartStore()
-const shipping = computed(() => cart.total >= 200 ? 0 : 15)
-const grandTotal = computed(() => (cart.total + shipping.value + cart.total * 0.08).toFixed(2))
+const loading = ref(true)
+
+onMounted(async () => {
+  try {
+    await cart.fetchCart()
+  } finally {
+    loading.value = false
+  }
+})
+
+async function removeItem(cartItemId) {
+  await cart.remove(cartItemId)
+}
+
+async function updateQty(cartItemId, qty) {
+  await cart.updateQty(cartItemId, qty)
+}
 </script>
 
 <style scoped>
@@ -77,7 +101,6 @@ const grandTotal = computed(() => (cart.total + shipping.value + cart.total * 0.
 .item-emoji { font-size: 2rem; background: var(--bg); width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius); flex-shrink: 0; border: 1px solid var(--border); }
 .item-brand { font-size: 0.7rem; font-weight: 800; color: var(--red); text-transform: uppercase; }
 .item-name { font-weight: 700; font-size: 0.88rem; }
-.item-sku { font-size: 0.72rem; color: var(--text-light); }
 .item-cell { font-size: 0.9rem; color: var(--text); }
 .item-cell.bold { font-weight: 700; font-family: 'Barlow', sans-serif; }
 .qty-ctrl { display: flex; align-items: center; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; width: fit-content; }

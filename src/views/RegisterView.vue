@@ -57,8 +57,8 @@ async function handleRegister() {
   if (password.value !== confirm.value) { error.value = 'Passwords do not match.'; return }
   if (password.value.length < 6) { error.value = 'Password must be at least 6 characters.'; return }
   loading.value = true
-  try { auth.register(name.value, email.value, password.value); router.push('/') }
-  catch (e) { error.value = e.message }
+  try { await auth.register(name.value, email.value, password.value, confirm.value); router.push('/') }
+  catch (e) { error.value = e.response?.data?.errors?.email?.[0] ?? e.response?.data?.message ?? e.message }
   finally { loading.value = false }
 }
 </script>

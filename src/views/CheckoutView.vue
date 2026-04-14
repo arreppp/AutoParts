@@ -36,7 +36,7 @@
             <button class="btn-primary" @click="step++" :disabled="!shippingValid">CONTINUE TO PAYMENT →</button>
           </div>
         </div>
-        <OrderSideBar :cart="cart" :shipping="shippingCost" :tax="tax" :total="grandTotal" />
+        <OrderSideBar :cart="cart" />
       </div>
 
       <!-- Step 2: Payment -->
@@ -62,7 +62,7 @@
             <button class="btn-primary" @click="step++" :disabled="!paymentValid">REVIEW ORDER →</button>
           </div>
         </div>
-        <OrderSideBar :cart="cart" :shipping="shippingCost" :tax="tax" :total="grandTotal" />
+        <OrderSideBar :cart="cart" />
       </div>
 
       <!-- Step 3: Confirm -->
@@ -88,23 +88,26 @@
               <span class="ci-emoji">{{ item.emoji }}</span>
               <span class="ci-name">{{ item.name }}</span>
               <span class="ci-qty">× {{ item.qty }}</span>
-              <span class="ci-price">RM {{ (item.price * item.qty).toFixed(2) }}</span>
+              <span class="ci-price">RM {{ item.subtotal.toFixed(2) }}</span>
             </div>
           </div>
+          <div v-if="orderError" class="error-msg">{{ orderError }}</div>
           <div class="form-actions">
             <button class="btn-secondary" @click="step--">← BACK</button>
-            <button class="btn-primary place-btn" @click="placeOrder">✓ PLACE ORDER NOW</button>
+            <button class="btn-primary place-btn" @click="placeOrder" :disabled="placing">
+              {{ placing ? 'PLACING ORDER...' : '✓ PLACE ORDER NOW' }}
+            </button>
           </div>
         </div>
-        <OrderSideBar :cart="cart" :shipping="shippingCost" :tax="tax" :total="grandTotal" />
+        <OrderSideBar :cart="cart" />
       </div>
 
       <!-- Success -->
       <div v-if="step===3" class="success-card">
         <div class="success-check">✓</div>
         <h2>ORDER PLACED SUCCESSFULLY!</h2>
-        <p class="order-ref">Order Reference: <strong>{{ placedOrder?.id }}</strong></p>
-        <p>Thank you for your purchase! Your parts will be processed and dispatched within 1 working day. You will receive a confirmation email shortly.</p>
+        <p class="order-ref">Order Reference: <strong>{{ placedOrder?.order_number }}</strong></p>
+        <p>Thank you for your purchase! Your parts will be processed and dispatched within 1 working day.</p>
         <div class="success-actions">
           <router-link to="/orders" class="btn-primary">VIEW MY ORDERS</router-link>
           <router-link to="/catalog" class="btn-secondary">CONTINUE SHOPPING</router-link>
@@ -115,7 +118,7 @@
 </template>
 
 <script setup>
-import { ref, computed, defineComponent, h } from 'vue'
+import { ref, computed, defineComponent, h, onMounted } from 'vue'
 import { useCartStore } from '../stores/cart'
 import { useOrdersStore } from '../stores/orders'
 
@@ -124,44 +127,74 @@ const ordersStore = useOrdersStore()
 const step = ref(0)
 const steps = ['Shipping', 'Payment', 'Confirm']
 const placedOrder = ref(null)
+const placing = ref(false)
+const orderError = ref('')
+
 const states = ['Johor','Kedah','Kelantan','Melaka','Negeri Sembilan','Pahang','Perak','Perlis','Pulau Pinang','Sabah','Sarawak','Selangor','Terengganu','Kuala Lumpur','Labuan','Putrajaya']
 const shipping = ref({ name:'',phone:'',address1:'',address2:'',city:'',postcode:'',state:'',notes:'' })
 const payment = ref({ method:'fpx',cardNumber:'',expiry:'',cvv:'',cardName:'' })
 const paymentMethods = [
-  { id:'fpx', icon:'🏦', name:'Online Banking (FPX)', desc:'Maybank2u, CIMB Clicks, RHB, Hong Leong and more' },
-  { id:'card', icon:'💳', name:'Credit / Debit Card', desc:'Visa, Mastercard, American Express' },
-  { id:'ewallet', icon:'📱', name:'e-Wallet', desc:"Touch 'n Go eWallet, GrabPay, Boost" },
-  { id:'cod', icon:'💵', name:'Cash on Delivery', desc:'Pay when parts arrive (Klang Valley only)' },
+  { id:'fpx',    icon:'🏦', name:'Online Banking (FPX)',   desc:'Maybank2u, CIMB Clicks, RHB, Hong Leong and more' },
+  { id:'card',   icon:'💳', name:'Credit / Debit Card',    desc:'Visa, Mastercard, American Express' },
+  { id:'ewallet',icon:'📱', name:'e-Wallet',               desc:"Touch 'n Go eWallet, GrabPay, Boost" },
+  { id:'cod',    icon:'💵', name:'Cash on Delivery',       desc:'Pay when parts arrive (Klang Valley only)' },
 ]
-const shippingCost = computed(() => cart.total >= 200 ? 0 : 15)
-const tax = computed(() => cart.total * 0.08)
-const grandTotal = computed(() => (cart.total + shippingCost.value + tax.value).toFixed(2))
-const shippingValid = computed(() => shipping.value.name && shipping.value.phone && shipping.value.address1 && shipping.value.city && shipping.value.postcode && shipping.value.state)
+
+onMounted(() => cart.fetchCart())
+
+const shippingValid = computed(() =>
+  shipping.value.name && shipping.value.phone && shipping.value.address1 &&
+  shipping.value.city && shipping.value.postcode && shipping.value.state
+)
 const paymentValid = computed(() => {
   if (!payment.value.method) return false
-  if (payment.value.method === 'card') return payment.value.cardNumber.length >= 16 && payment.value.expiry && payment.value.cvv && payment.value.cardName
+  if (payment.value.method === 'card') {
+    return payment.value.cardNumber.length >= 16 && payment.value.expiry && payment.value.cvv && payment.value.cardName
+  }
   return true
 })
-function placeOrder() {
-  placedOrder.value = ordersStore.placeOrder(cart.items, { shipping: shipping.value, payment: { method: payment.value.method }, total: grandTotal.value })
-  cart.clear(); step.value = 3
+
+async function placeOrder() {
+  placing.value = true
+  orderError.value = ''
+  try {
+    placedOrder.value = await ordersStore.placeOrder({
+      shipping_name:     shipping.value.name,
+      shipping_phone:    shipping.value.phone,
+      shipping_address1: shipping.value.address1,
+      shipping_address2: shipping.value.address2 || undefined,
+      shipping_city:     shipping.value.city,
+      shipping_postcode: shipping.value.postcode,
+      shipping_state:    shipping.value.state,
+      delivery_notes:    shipping.value.notes || undefined,
+      payment_method:    payment.value.method,
+    })
+    await cart.fetchCart()
+    step.value = 3
+  } catch (e) {
+    orderError.value = e.response?.data?.message ?? 'Failed to place order. Please try again.'
+  } finally {
+    placing.value = false
+  }
 }
 
 const OrderSideBar = defineComponent({
-  props: ['cart','shipping','tax','total'],
+  props: ['cart'],
   setup(props) {
     return () => h('div', { class: 'order-sidebar' }, [
       h('h3', 'ORDER SUMMARY'),
-      ...props.cart.items.map(item => h('div', { class: 'os-row' }, [
-        h('span', item.name + ' ×' + item.qty),
-        h('span', 'RM ' + (item.price * item.qty).toFixed(2))
-      ])),
+      ...props.cart.items.map(item =>
+        h('div', { class: 'os-row' }, [
+          h('span', item.name + ' ×' + item.qty),
+          h('span', 'RM ' + item.subtotal.toFixed(2))
+        ])
+      ),
       h('div', { class: 'os-divider' }),
-      h('div', { class: 'os-row' }, [h('span', 'Subtotal'), h('span', 'RM ' + props.cart.total.toFixed(2))]),
-      h('div', { class: 'os-row' }, [h('span', 'Shipping'), h('span', props.shipping === 0 ? 'FREE' : 'RM ' + props.shipping.toFixed(2))]),
-      h('div', { class: 'os-row' }, [h('span', 'SST (8%)'), h('span', 'RM ' + props.tax.toFixed(2))]),
+      h('div', { class: 'os-row' }, [h('span', 'Subtotal'), h('span', 'RM ' + props.cart.subtotal.toFixed(2))]),
+      h('div', { class: 'os-row' }, [h('span', 'Shipping'), h('span', props.cart.shipping === 0 ? 'FREE' : 'RM ' + props.cart.shipping.toFixed(2))]),
+      h('div', { class: 'os-row' }, [h('span', 'SST (8%)'), h('span', 'RM ' + props.cart.tax.toFixed(2))]),
       h('div', { class: 'os-divider' }),
-      h('div', { class: 'os-row os-total' }, [h('span', 'TOTAL'), h('span', 'RM ' + props.total)])
+      h('div', { class: 'os-row os-total' }, [h('span', 'TOTAL'), h('span', 'RM ' + props.cart.total.toFixed(2))])
     ])
   }
 })
@@ -192,7 +225,8 @@ const OrderSideBar = defineComponent({
 .field input:focus, .field textarea:focus { border-color: var(--red); background: #fff; }
 .form-select { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 10px 13px; border-radius: var(--radius); font-size: 0.9rem; width: 100%; }
 .form-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
-.btn-primary:disabled, .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+.error-msg { background: #fff0f0; border: 1px solid #ffcdd2; color: var(--red); padding: 10px 14px; border-radius: var(--radius); font-size: 0.85rem; margin-bottom: 12px; }
 
 .pay-options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
 .pay-opt { display: flex; align-items: center; gap: 14px; border: 1.5px solid var(--border); border-radius: var(--radius); padding: 14px; cursor: pointer; transition: all 0.2s; background: var(--bg); }
@@ -219,7 +253,6 @@ const OrderSideBar = defineComponent({
 .ci-price { font-weight: 700; }
 .place-btn { min-width: 200px; justify-content: center; }
 
-/* Order sidebar */
 :deep(.order-sidebar) { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; position: sticky; top: 120px; }
 :deep(.order-sidebar h3) { font-family: 'Barlow', sans-serif; font-size: 0.85rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; color: var(--navy); margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid var(--red); }
 :deep(.os-row) { display: flex; justify-content: space-between; font-size: 0.83rem; color: var(--text-muted); padding: 5px 0; }

@@ -1,33 +1,48 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import api from '../lib/api'
 
 export const useCartStore = defineStore('cart', () => {
-  const items = ref(JSON.parse(localStorage.getItem('ap_cart') || '[]'))
+  const items    = ref([])
+  const subtotal = ref(0)
+  const shipping = ref(0)
+  const tax      = ref(0)
+  const total    = ref(0)
 
   const count = computed(() => items.value.reduce((s, i) => s + i.qty, 0))
-  const total = computed(() => items.value.reduce((s, i) => s + i.price * i.qty, 0))
 
-  function save() { localStorage.setItem('ap_cart', JSON.stringify(items.value)) }
-
-  function add(product) {
-    const existing = items.value.find(i => i.id === product.id)
-    if (existing) existing.qty++
-    else items.value.push({ ...product, qty: 1 })
-    save()
+  function applyResponse(data) {
+    items.value    = data.items
+    subtotal.value = data.subtotal
+    shipping.value = data.shipping
+    tax.value      = data.tax
+    total.value    = data.total
   }
 
-  function remove(id) {
-    items.value = items.value.filter(i => i.id !== id)
-    save()
+  async function fetchCart() {
+    const { data } = await api.get('/cart')
+    applyResponse(data)
   }
 
-  function updateQty(id, qty) {
-    const item = items.value.find(i => i.id === id)
-    if (item) { item.qty = qty; if (item.qty <= 0) remove(id) }
-    save()
+  async function add(product) {
+    const { data } = await api.post('/cart/add', { product_id: product.id })
+    applyResponse(data)
   }
 
-  function clear() { items.value = []; save() }
+  async function remove(cartItemId) {
+    const { data } = await api.delete(`/cart/items/${cartItemId}`)
+    applyResponse(data)
+  }
 
-  return { items, count, total, add, remove, updateQty, clear }
+  async function updateQty(cartItemId, qty) {
+    const { data } = await api.put(`/cart/items/${cartItemId}`, { quantity: qty })
+    applyResponse(data)
+  }
+
+  async function clear() {
+    const { data } = await api.delete('/cart/clear')
+    applyResponse(data)
+  }
+
+  return { items, count, subtotal, shipping, tax, total, fetchCart, add, remove, updateQty, clear }
 })

@@ -50,8 +50,8 @@ const auth = useAuthStore(); const router = useRouter(); const route = useRoute(
 const email = ref(''); const password = ref(''); const error = ref(''); const loading = ref(false)
 async function handleLogin() {
   error.value = ''; loading.value = true
-  try { auth.login(email.value, password.value); router.push(route.query.redirect || '/') }
-  catch (e) { error.value = e.message }
+  try { await auth.login(email.value, password.value); router.push(route.query.redirect || '/') }
+  catch (e) { error.value = e.response?.data?.errors?.email?.[0] ?? e.response?.data?.message ?? e.message }
   finally { loading.value = false }
 }
 </script>

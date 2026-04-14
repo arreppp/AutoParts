@@ -1,16 +1,22 @@
+import { ref } from 'vue'
+import api from '../lib/api'
+
+// Kept as a plain composable (no Pinia store needed) —
+// components fetch directly and categories are loaded once.
+
 export const categories = ['All', 'Engine', 'Brakes', 'Suspension', 'Electrical', 'Body', 'Filters', 'Tyres']
 
-export const products = [
-  { id: 1, name: 'NGK Iridium Spark Plug', category: 'Engine', price: 38.50, stock: 120, rating: 4.8, reviews: 214, sku: 'NGK-IRI-001', brand: 'NGK', desc: 'Iridium fine wire centre electrode for maximum ignitability. Fits most Japanese & Korean vehicles.', emoji: '⚡' },
-  { id: 2, name: 'Bosch Oil Filter', category: 'Filters', price: 18.90, stock: 87, rating: 4.6, reviews: 98, sku: 'BSH-OIL-002', brand: 'Bosch', desc: 'High-performance oil filter with anti-drain back valve. Universal fit for most sedans and SUVs.', emoji: '🔩' },
-  { id: 3, name: 'Brembo Brake Pads (Front)', category: 'Brakes', price: 145.00, stock: 45, rating: 4.9, reviews: 311, sku: 'BRM-BRK-003', brand: 'Brembo', desc: 'OEM-quality ceramic brake pads. Low dust, low noise, superior stopping power.', emoji: '🛑' },
-  { id: 4, name: 'KYB Gas Shock Absorber', category: 'Suspension', price: 210.00, stock: 32, rating: 4.7, reviews: 156, sku: 'KYB-SHK-004', brand: 'KYB', desc: 'Gas-pressurized shock absorber for improved handling and ride comfort. Fits Proton, Perodua, Toyota.', emoji: '🔧' },
-  { id: 5, name: 'Denso Air Filter', category: 'Filters', price: 42.00, stock: 63, rating: 4.5, reviews: 77, sku: 'DNS-AIR-005', brand: 'Denso', desc: 'High-flow paper air filter for improved engine breathing and performance.', emoji: '💨' },
-  { id: 6, name: 'Osram H4 Headlight Bulb', category: 'Electrical', price: 55.00, stock: 200, rating: 4.4, reviews: 182, sku: 'OSR-H4-006', brand: 'Osram', desc: '60/55W halogen headlight bulb. Fits most Malaysian cars including Myvi and Viva.', emoji: '💡' },
-  { id: 7, name: 'Michelin Pilot Sport 5 (205/55R16)', category: 'Tyres', price: 480.00, stock: 18, rating: 4.9, reviews: 423, sku: 'MCH-TYR-007', brand: 'Michelin', desc: 'Ultra-high performance tyre with exceptional wet and dry grip. Speed rating W.', emoji: '🏎️' },
-  { id: 8, name: 'TRW Power Steering Rack', category: 'Suspension', price: 620.00, stock: 8, rating: 4.6, reviews: 44, sku: 'TRW-STR-008', brand: 'TRW', desc: 'Hydraulic power steering rack. OEM replacement for Proton Saga, Iriz, and Persona.', emoji: '🎮' },
-  { id: 9, name: 'Bosch Wiper Blade Set', category: 'Body', price: 68.00, stock: 95, rating: 4.3, reviews: 128, sku: 'BSH-WPR-009', brand: 'Bosch', desc: 'Aerotwin flat blade set. Smear-free wiping in tropical rain. 24"+16" pair.', emoji: '🌧️' },
-  { id: 10, name: 'ACDelco Car Battery 65Ah', category: 'Electrical', price: 340.00, stock: 22, rating: 4.7, reviews: 209, sku: 'ACD-BAT-010', brand: 'ACDelco', desc: 'Maintenance-free calcium battery. 18-month warranty. Suitable for most 1.3–2.0L cars.', emoji: '🔋' },
-  { id: 11, name: 'Motul 5100 10W40 Engine Oil 4L', category: 'Engine', price: 88.00, stock: 76, rating: 4.8, reviews: 391, sku: 'MTL-OIL-011', brand: 'Motul', desc: 'Semi-synthetic 4-stroke engine oil. Ideal for high-mileage and performance engines.', emoji: '🛢️' },
-  { id: 12, name: 'DBA Drilled Brake Rotor', category: 'Brakes', price: 275.00, stock: 14, rating: 4.7, reviews: 67, sku: 'DBA-ROT-012', brand: 'DBA', desc: 'Cross-drilled slotted rotor for superior heat dissipation. Reduces brake fade in aggressive driving.', emoji: '⭕' },
-]
+export async function fetchProducts(params = {}) {
+  const { data } = await api.get('/products', { params })
+  return data
+}
+
+export async function fetchProduct(id) {
+  const { data } = await api.get(`/products/${id}`)
+  return data
+}
+
+export async function fetchCategories() {
+  const { data } = await api.get('/categories')
+  return data
+}
